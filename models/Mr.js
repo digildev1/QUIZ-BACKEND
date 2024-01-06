@@ -43,8 +43,6 @@ const mrSchema = new mongosoe.Schema({
         // required:true
     },
 
-
-
     loginLogs: [
         {
             timestamp: {

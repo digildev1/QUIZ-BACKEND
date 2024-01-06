@@ -431,6 +431,125 @@ const handleAllMrDoctorsDataV2 = async (req, res) => {
     }
 };
 
+const handleAllMrDoctorsDataV3 = async (req, res) => {
+    try {
+        const mrsAndDoctors = await mrModel.aggregate([
+            {
+                $lookup: {
+                    from: 'quizzes',
+                    localField: '_id',
+                    foreignField: 'mrReference',
+                    as: 'doctors',
+                },
+            },
+            {
+                $unwind: { path: '$doctors', preserveNullAndEmptyArrays: true },
+            },
+            {
+                $group: {
+                    _id: '$_id',
+                    USERNAME: { $first: '$USERNAME' },
+                    MRID: { $first: '$MRID' },
+                    PASSWORD: { $first: '$PASSWORD' },
+                    EMAIL: { $first: '$EMAIL' },
+                    ROLE: { $first: '$ROLE' },
+                    HQ: { $first: '$HQ' },
+                    REGION: { $first: '$REGION' },
+                    BUSINESSUNIT: { $first: '$BUSINESSUNIT' },
+                    DOJ: { $first: '$DOJ' },
+                    LOGINLOGS: { $sum: { $size: '$loginLogs' } },
+                    doctors: {
+                        $push: {
+                            doctorName: '$doctors.doctorName',
+                            scCode: '$doctors.scCode',
+                            city: '$doctors.city',
+                            locality: '$doctors.locality',
+                            state: '$doctors.state',
+                            doc: '$doctors.doc',
+                            quizCategories: {
+                                $ifNull: ['$doctors.quizCategories', []],
+                            },
+                        },
+                    },
+                },
+            },
+            {
+                $project: {
+                    _id: 0,
+                    USERNAME: 1,
+                    MRID: 1,
+                    PASSWORD: 1,
+                    EMAIL: 1,
+                    ROLE: 1,
+                    HQ: 1,
+                    REGION: 1,
+                    BUSINESSUNIT: 1,
+                    DOJ: 1,
+                    LOGINLOGS: 1,
+                    doctors: 1,
+                },
+            },
+        ]);
+
+        const rows = mrsAndDoctors.flatMap((row) => {
+            const mrData = [
+                row.USERNAME,
+                row.MRID,
+                row.PASSWORD,
+                row.EMAIL,
+                row.ROLE,
+                row.HQ,
+                row.REGION,
+                row.BUSINESSUNIT,
+                row.DOJ,
+                row.LOGINLOGS,
+            ];
+            const doctorsData = row.doctors.map((doctor) => {
+                const categoryCount = doctor.quizCategories.length;
+                const totalCategoryPlayed = {
+                    "TotalCategoryPlayed": categoryCount
+                }
+
+
+                const totalPointsInCategory = doctor.quizCategories.reduce((totalPoints, category) => {
+                    return totalPoints + (category.TotalPoints || 0);
+                }, 0);
+
+
+                const categoryData = doctor.quizCategories.map((category) => {
+                    return [{
+                        "categoryName": category.categoryName,
+                        "Points": category.TotalPoints || 0,
+                        "DateOfPlayed": formatDate(new Date(category.doc))
+                    }];
+
+                });
+
+                return [
+                    ...mrData,
+                    doctor.doctorName,
+                    doctor.scCode || '',
+                    doctor.city || '',
+                    doctor.locality || '',
+                    doctor.state || '',
+                    doctor.doc || 'Date Not Available',
+                    ...categoryData,
+                    totalCategoryPlayed,
+                    totalPointsInCategory,
+                ];
+            });
+
+            return doctorsData;
+        });
+
+        return res.json(rows);
+    } catch (error) {
+        console.error(error);
+        const errMsg = error.message;
+        return res.status(500).json({ success: false, errMsg, error: 'Internal Server Error' });
+    }
+};
+
 const handleForgetPassword = async (req, res) => {
     try {
 
@@ -688,10 +807,11 @@ module.exports = {
     handleAdminSideReports,
     handleAllMrDoctorsData,
     handleAllMrDoctorsDataV2,
+    handleAllMrDoctorsDataV3,
     handleForgetPassword,
     handleTopMrByDoctor,
     handleTopCategoryChart,
     handleTop20Mr,
     handleUpload,
-    handleMrsRegion
+    handleMrsRegion,
 }

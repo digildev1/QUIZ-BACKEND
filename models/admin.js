@@ -7,13 +7,21 @@ const adminSchema = new mongoose.Schema({
         unique: true,
     },
     role: {
-        type: Number,
+        type: String,
+        enum: ['SUPER_ADMIN', 'CONTENT_ADMIN', 'REPORT_ADMIN'],
         default: 1
-    },
-
+    }
+    ,
+    SUPER_ADMIN_COUNT: {
+        type: Number,
+        default: 0
+    }
+    ,
     Password: String,
     Gender: String,
     MobileNumber: String,
+
+
     Mrs: [
         { type: mongoose.Schema.Types.ObjectId, ref: 'Mr' }
     ]
